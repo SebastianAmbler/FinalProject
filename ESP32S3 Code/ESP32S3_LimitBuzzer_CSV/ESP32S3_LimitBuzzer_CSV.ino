@@ -18,18 +18,18 @@
 //   Replies are '#' comment lines ("# OK ..." / "# ERROR ...").
 //
 // Buzzer wiring: the buzzer's + side is tied to supply, GPIO39 sinks the
-// ground side. So GPIO39 LOW = loud, HIGH (or idle) = silent.
-//
+// ground side. So GPIO39 LOW = loud, HIGH (or idle) = silent.//
 // Limit switches: pins use INPUT_PULLUP (switch to GND -> reads 0 when pressed).
 // If your switches are wired the other way (external pull-down), change
 // SWITCH_PIN_MODE to INPUT.
 
 // ---------------- Pin Definitions ----------------
-#define BUZZER_PIN 39
+#define BUZZER_PIN 38
 const uint8_t SWITCH_PINS[4] = {18, 21, 47, 48};
 #define SWITCH_PIN_MODE INPUT_PULLUP
 
-#define BUZZER_ON  LOW   // sink ground = loud
+// Buzzer + is always on supply, - is on GPIO39, so LOW sinks current = loud.
+#define BUZZER_ON  LOW
 #define BUZZER_OFF HIGH
 
 // ---------------- State ----------------
