@@ -60,12 +60,12 @@ def mecanum_wheel_speeds(vx, vy, wz, k):
     vy left, wz CCW. k = lx + ly (half wheelbase + half track, metres).
     Only vy produces strafing; only wz produces rotation.
     """
-    # Rotation sign is inverted vs. the textbook formula: bench-tested, the
-    # chassis turned the wrong way for +wz while x/y were correct.
-    fl = vx - vy + k * wz
-    fr = vx + vy - k * wz
-    rl = vx + vy + k * wz
-    rr = vx - vy - k * wz
+    # Textbook rotation sign (+wz = CCW = left turn). An earlier inverted
+    # version turned left/right swapped on the bench, so it was reverted.
+    fl = vx - vy - k * wz
+    fr = vx + vy + k * wz
+    rl = vx + vy - k * wz
+    rr = vx - vy + k * wz
     return [fl, fr, rr, rl]
 
 
