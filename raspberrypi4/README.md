@@ -3,7 +3,7 @@
 ROS 2 (Jazzy) workspace sources for the Raspberry Pi 4.
 
 ## pod_serial_reader
-Reads the CSV stream from the POD S3 (`ESP32S3_SensorBoard_U8_CSV.ino`), shows a live table in the terminal, and publishes `pod/battery`, `pod/euler_deg` (Vector3Stamped: heading, roll, pitch in deg) and `pod/tof_0..3` (Range).
+Reads the CSV stream from the POD S3 (`ESP32S3_SensorBoard_U8_CSV.ino`), shows a live table in the terminal, and publishes `pod/imu` (sensor_msgs/Imu: yaw-only orientation, gyro rad/s, linear accel m/s² without gravity; for robot_localization), `pod/battery`, `pod/euler_deg` (Vector3Stamped: heading, roll, pitch in deg) and `pod/tof_0..3` (Range).
 
 ```bash
 sudo apt install python3-serial
@@ -13,7 +13,7 @@ source install/setup.bash
 ros2 run pod_serial_reader serial_reader --ros-args -p port:=/dev/ttyACM0
 ```
 
-Parameters: `port` (/dev/ttyACM0), `baud` (115200), `display` (true), `display_hz` (5.0), `publish` (true).
+Parameters: `port` (/dev/ttyACM0), `baud` (115200), `display` (true), `display_hz` (5.0), `publish` (true), `tof_filter_window` (5, median filter on ToF; 1 = off), `imu_frame_id` (imu_link), `imu_yaw_offset_deg` (0.0), `imu_orientation_var` (0.01), `imu_gyro_var` (0.0004), `imu_accel_var` (0.04).
 ### limit_buzzer (same package)
 Reads the CSV stream from the limit-switch/buzzer S3 (`ESP32S3_LimitBuzzer_CSV.ino`), shows a live table, publishes `main/limit_switch_0..3` (std_msgs/Bool, True = pressed) and `main/buzzer_state` (Bool), and subscribes to `main/buzzer_cmd` (std_msgs/Int32: `0` off, `1` on, `2..60000` beep for that many ms).
 
