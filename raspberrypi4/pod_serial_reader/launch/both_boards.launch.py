@@ -1,4 +1,4 @@
-"""Run the POD S3 reader and the limit-switch/buzzer S3 reader at the same time.
+"""Run the POD S3 reader and the buzzer/motor S3 reader at the same time.
 
 Each node owns its own serial port and its own timer, so both streams are
 read concurrently (separate processes).

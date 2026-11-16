@@ -1,15 +1,14 @@
-// ESP32-S3 limit-switch + buzzer board - CSV serial version.
+// ESP32-S3 buzzer + motor board - CSV serial version.
 // Same architecture as ESP32S3_SensorBoard_U8_CSV: plain Arduino sketch,
 // machine-readable CSV over USB serial for a Python script on the Pi, with
 // '#' lines for comments/status.
 //
 // Serial OUT (115200 baud, every 50 ms):
 //   - Header printed once after boot:
-//       #CSV,ms,limit_switch0,limit_switch1,limit_switch2,limit_switch3,buzzer,motor1,motor2,motor3,motor4
-//   - Data lines, 10 comma-separated fields, no spaces:
+//       #CSV,ms,buzzer,motor1,motor2,motor3,motor4
+//   - Data lines, 6 comma-separated fields, no spaces:
 //       ms              millis() since boot
-//       limit_switch0-3 raw digitalRead of GPIO 18, 21, 47, 48 (1 = HIGH, 0 = LOW)
-//       buzzer          1 = buzzer sounding, 0 = silent
+//       buzzer         1 = buzzer sounding, 0 = silent
 //       motor1-4        currently applied command, -255..255 (sign = direction)
 //
 // Serial IN (one command per line, '\n' or '\r\n'):
@@ -18,6 +17,8 @@
 //   BUZZER,<ms>   beep for <ms> milliseconds (2..60000), then auto-off
 //   MOTOR,<m1>,<m2>,<m3>,<m4>   each -255..255 (sign = direction, 0 = stop)
 //   STOP          all motors off
+//   ENC,1 / ENC,0 / ENC,R   encoder debug lines on / off / zero counts
+//                (prints "# ENC counts a,b,c,d | cps a,b,c,d"; NOT in the CSV)
 //   TIMEOUT,<ms>  set motor watchdog (0 = disabled, bench debug only; default 500)
 //   Motors stop automatically if no MOTOR command arrives within
 //   MOTOR_TIMEOUT_MS (watchdog: Pi crash / cable pull / node killed).
@@ -28,15 +29,9 @@
 //
 // Buzzer wiring: the buzzer's + side is tied to supply, GPIO38 sinks the
 // ground side. So GPIO38 LOW = loud, HIGH (or idle) = silent.
-//
-// Limit switches: pins use INPUT_PULLUP (switch to GND -> reads 0 when pressed).
-// If your switches are wired the other way (external pull-down), change
-// SWITCH_PIN_MODE to INPUT.
 
 // ---------------- Pin Definitions ----------------
 #define BUZZER_PIN 38
-const uint8_t SWITCH_PINS[4] = {18, 21, 47, 48};
-#define SWITCH_PIN_MODE INPUT_PULLUP
 
 // Buzzer + is always on supply, - is on GPIO38, so LOW sinks current = loud.
 #define BUZZER_ON  LOW
@@ -52,7 +47,23 @@ const bool MOTOR_INVERT[4] = {false, false, false, false};
 #define MOTOR_TIMEOUT_MS 500          // default watchdog: stop if no MOTOR cmd this long
 #define MOTOR_MAX_STEP 255            // max duty change per loop (ramp); lower = softer accel
 
+// Drive encoders (quadrature, x4 decoding via interrupts on both channels).
+// Index 0 = Encoder1 (belongs to Motor1) ... index 3 = Encoder4.
+const uint8_t ENC_A_PINS[4] = {13, 9, 11, 14};
+const uint8_t ENC_B_PINS[4] = {12, 8, 10, 17};
+// Flip so that positive duty on a motor gives positive counts.
+const bool ENC_INVERT[4] = {false, false, false, false};
+#define ENC_DEBUG_DEFAULT 1           // 1 = print "# ENC ..." debug lines at boot
+#define ENC_DEBUG_INTERVAL_MS 200
+// NOTE: encoder data is NOT in the CSV and is not sent to the Pi (debug only).
+
 // ---------------- State ----------------
+volatile int32_t encCount[4] = {0, 0, 0, 0};
+volatile uint8_t encState[4] = {0, 0, 0, 0};   // last (A<<1)|B
+bool encDebug = ENC_DEBUG_DEFAULT;
+unsigned long lastEncPrint = 0;
+int32_t lastEncSnap[4] = {0, 0, 0, 0};
+
 int motorTarget[4] = {0, 0, 0, 0};    // last commanded
 int motorApplied[4] = {0, 0, 0, 0};   // actually output (ramped)
 unsigned long lastMotorCmd = 0;
@@ -65,6 +76,61 @@ unsigned long lastPrint = 0;
 const unsigned long PRINT_INTERVAL = 50; // ms
 
 String cmdBuf;
+
+// ---------------- Encoders ----------------
+// Gray-code transition table, index = (prev<<2)|curr, value = -1/0/+1.
+// Invalid (double-step) transitions count 0.
+static const int8_t ENC_TABLE[16] = {
+   0, +1, -1,  0,
+  -1,  0,  0, +1,
+  +1,  0,  0, -1,
+   0, -1, +1,  0
+};
+
+void IRAM_ATTR encISR(void *arg) {
+  uint8_t i = (uint8_t)(uintptr_t)arg;
+  uint8_t cur = (digitalRead(ENC_A_PINS[i]) << 1) | digitalRead(ENC_B_PINS[i]);
+  int8_t step = ENC_TABLE[(encState[i] << 2) | cur];
+  encState[i] = cur;
+  encCount[i] += ENC_INVERT[i] ? -step : step;
+}
+
+void setupEncoders() {
+  for (uint8_t i = 0; i < 4; i++) {
+    pinMode(ENC_A_PINS[i], INPUT_PULLUP);
+    pinMode(ENC_B_PINS[i], INPUT_PULLUP);
+    encState[i] = (digitalRead(ENC_A_PINS[i]) << 1) | digitalRead(ENC_B_PINS[i]);
+    attachInterruptArg(digitalPinToInterrupt(ENC_A_PINS[i]), encISR, (void *)(uintptr_t)i, CHANGE);
+    attachInterruptArg(digitalPinToInterrupt(ENC_B_PINS[i]), encISR, (void *)(uintptr_t)i, CHANGE);
+  }
+}
+
+void resetEncoders() {
+  noInterrupts();
+  for (uint8_t i = 0; i < 4; i++) encCount[i] = 0;
+  interrupts();
+  for (uint8_t i = 0; i < 4; i++) lastEncSnap[i] = 0;
+}
+
+void printEncoderDebug() {
+  unsigned long now = millis();
+  unsigned long dt = now - lastEncPrint;
+  if (dt < ENC_DEBUG_INTERVAL_MS) return;
+  lastEncPrint = now;
+  int32_t snap[4];
+  noInterrupts();
+  for (uint8_t i = 0; i < 4; i++) snap[i] = encCount[i];
+  interrupts();
+  Serial.print("# ENC counts");
+  for (uint8_t i = 0; i < 4; i++) { Serial.print(i ? ',' : ' '); Serial.print(snap[i]); }
+  Serial.print(" | cps");
+  for (uint8_t i = 0; i < 4; i++) {
+    Serial.print(i ? ',' : ' ');
+    Serial.print((long)((snap[i] - lastEncSnap[i]) * 1000L / (long)dt));
+    lastEncSnap[i] = snap[i];
+  }
+  Serial.println();
+}
 
 // ---------------- Helpers ----------------
 void setBuzzer(bool on) {
@@ -171,6 +237,17 @@ void handleCommand(String line) {
     Serial.println(v);
     return;
   }
+  if (name == "ENC") {
+    // ENC,1 debug prints on | ENC,0 off | ENC,R zero the counts
+    String a = (comma < 0) ? "" : line.substring(comma + 1);
+    a.trim();
+    a.toUpperCase();
+    if (a == "R") { resetEncoders(); Serial.println("# OK encoders reset"); }
+    else if (a == "1") { encDebug = true; Serial.println("# OK encoder debug on"); }
+    else if (a == "0") { encDebug = false; Serial.println("# OK encoder debug off"); }
+    else Serial.println("# ERROR usage: ENC,1 | ENC,0 | ENC,R");
+    return;
+  }
   if (name == "STOP") {
     stopMotors();
     Serial.println("# OK motors stopped");
@@ -240,27 +317,26 @@ void setup() {
   }
   stopMotors();
 
+  setupEncoders();
+
   Serial.begin(115200);
   while (!Serial) { delay(10); }
   delay(500);
 
-  Serial.println("# ESP32-S3 Limit Switch + Buzzer (CSV) booting");
+  Serial.println("# ESP32-S3 Buzzer + Motor (CSV) booting");
   // 1=power-on 3=software 4=panic 6/7/8=watchdog 9=BROWNOUT (supply sag)
   Serial.print("# reset reason code: ");
   Serial.println((int)esp_reset_reason());
 
-  for (uint8_t i = 0; i < 4; i++) {
-    pinMode(SWITCH_PINS[i], SWITCH_PIN_MODE);
-  }
-
   Serial.println("# Setup complete");
-  Serial.println("#CSV,ms,limit_switch0,limit_switch1,limit_switch2,limit_switch3,buzzer,motor1,motor2,motor3,motor4");
+  Serial.println("#CSV,ms,buzzer,motor1,motor2,motor3,motor4");
 }
 
 // ---------------- Loop ----------------
 void loop() {
   readSerialCommands();
   updateMotors();
+  if (encDebug) printEncoderDebug();
 
   // Auto-off for timed beeps
   if (buzzerOn && buzzerOffAt != 0 && (long)(millis() - buzzerOffAt) >= 0) {
@@ -271,10 +347,6 @@ void loop() {
   lastPrint = millis();
 
   Serial.print(lastPrint);
-  for (uint8_t i = 0; i < 4; i++) {
-    Serial.print(',');
-    Serial.print(digitalRead(SWITCH_PINS[i]));
-  }
   Serial.print(',');
   Serial.print(buzzerOn ? 1 : 0);
   for (uint8_t i = 0; i < 4; i++) {

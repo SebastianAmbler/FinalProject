@@ -15,14 +15,14 @@ ros2 run pod_serial_reader serial_reader --ros-args -p port:=/dev/ttyACM0
 
 Parameters: `port` (/dev/ttyACM0), `baud` (115200), `display` (true), `display_hz` (5.0), `publish` (true), `tof_filter_window` (5, median filter on ToF; 1 = off), `imu_frame_id` (imu_link), `imu_yaw_offset_deg` (0.0), `imu_orientation_var` (0.01), `imu_gyro_var` (0.0004), `imu_accel_var` (0.04).
 ### limit_buzzer (same package)
-Reads the CSV stream from the limit-switch/buzzer S3 (`ESP32S3_LimitBuzzer_CSV.ino`), shows a live table, publishes `main/limit_switch_0..3` (std_msgs/Bool, True = pressed) and `main/buzzer_state` (Bool), and subscribes to `main/buzzer_cmd` (std_msgs/Int32: `0` off, `1` on, `2..60000` beep for that many ms).
+Reads the CSV stream from the buzzer/motor S3 (`ESP32S3_LimitBuzzer_CSV.ino`), shows a live table, publishes `main/buzzer_state` (Bool), and subscribes to `main/buzzer_cmd` (std_msgs/Int32: `0` off, `1` on, `2..60000` beep for that many ms).
 
 ```bash
 ros2 run pod_serial_reader limit_buzzer --ros-args -p port:=/dev/ttyACM1
 ros2 topic pub --once /main/buzzer_cmd std_msgs/msg/Int32 "{data: 500}"
 ```
 
-Parameters: `port` (/dev/ttyACM1), `baud` (115200), `display`, `display_hz`, `publish`, `pressed_level` (0 = pin reads LOW when pressed, matching `INPUT_PULLUP`).
+Parameters: `port` (/dev/ttyACM1), `baud` (115200), `display`, `display_hz`, `publish`.
 ### Both boards at once
 ```bash
 ros2 launch pod_serial_reader both_boards.launch.py pod_port:=/dev/serial/by-id/<pod> limit_port:=/dev/serial/by-id/<limit>

@@ -1,0 +1,177 @@
+<?xml version="1.0"?>
+<!-- Generated from emb_bot_V21.step. Units: metres, kg. base_link: centre of the wheel rectangle at axle height.
+     Robot +X (forward) = CAD -Y, +Y (left) = CAD +X, +Z up. Masses use estimated densities - replace with weighed values. -->
+<robot name="emb_bot">
+  <material name="aluminium"><color rgba="0.75 0.76 0.78 1"/></material>
+  <material name="dark"><color rgba="0.15 0.15 0.17 1"/></material>
+  <material name="black"><color rgba="0.05 0.05 0.05 1"/></material>
+
+  <link name="base_footprint"/>
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/><child link="base_link"/>
+    <origin xyz="0 0 0.052797" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/base_link.stl"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="0.007675 0 0.069093" rpy="0 0 0"/>
+      <geometry><box size="0.5 0.501 0.1"/></geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.007325 0 0.57909" rpy="0 0 0"/>
+      <geometry><box size="0.19 0.201 0.92"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-0.014044 0.0035199 0.25594" rpy="0 0 0"/>
+      <mass value="7.5552"/>
+      <inertia ixx="0.829293" ixy="0.000597362" ixz="-0.0210756" iyy="0.825378" iyz="-0.00514431" izz="0.283813"/>
+    </inertial>
+  </link>
+
+  <!-- Front axle pivots on two bearings (passive roll joint). Limits are an estimate - check clearance on the real robot. -->
+  <link name="front_axle">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/front_axle.stl"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="0.00035 0 -0.05462" rpy="0 0 0"/>
+      <geometry><box size="0.12 0.331 0.059"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-0.0001431 1.6677e-06 -0.042773" rpy="0 0 0"/>
+      <mass value="1.3308"/>
+      <inertia ixx="0.0171202" ixy="3.16956e-07" ixz="1.12854e-05" iyy="0.00228581" iyz="1.19254e-05" izz="0.0179176"/>
+    </inertial>
+  </link>
+  <joint name="front_axle_joint" type="revolute">
+    <parent link="base_link"/><child link="front_axle"/>
+    <origin xyz="0.16233 0 0.064213" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.15" upper="0.15" effort="50" velocity="2"/>
+    <dynamics damping="1.0" friction="0.1"/>
+  </joint>
+
+  <link name="front_left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/front_left_wheel.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0528" length="0.05"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="4.3415e-07 -0.00019524 -4.7779e-07" rpy="0 0 0"/>
+      <mass value="0.5087"/>
+      <inertia ixx="0.000407236" ixy="4.23274e-11" ixz="-1.55619e-11" iyy="0.000608371" iyz="2.4541e-12" izz="0.000407236"/>
+    </inertial>
+  </link>
+  <joint name="front_left_wheel_joint" type="continuous">
+    <parent link="front_axle"/><child link="front_left_wheel"/>
+    <origin xyz="0 0.2255 -0.06491" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="5" velocity="20"/>
+    <dynamics damping="0.01" friction="0.01"/>
+  </joint>
+
+  <link name="front_right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/front_right_wheel.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0528" length="0.05"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="2.9878e-07 -0.00019524 -3.2184e-06" rpy="0 0 0"/>
+      <mass value="0.5087"/>
+      <inertia ixx="0.000407236" ixy="4.23274e-11" ixz="-1.55619e-11" iyy="0.000608371" iyz="2.4541e-12" izz="0.000407236"/>
+    </inertial>
+  </link>
+  <joint name="front_right_wheel_joint" type="continuous">
+    <parent link="front_axle"/><child link="front_right_wheel"/>
+    <origin xyz="0 -0.2255 -0.06378" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="5" velocity="20"/>
+    <dynamics damping="0.01" friction="0.01"/>
+  </joint>
+
+  <link name="rear_left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/rear_left_wheel.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0528" length="0.05"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-9.0852e-08 -0.00019524 -7.8751e-07" rpy="0 0 0"/>
+      <mass value="0.5087"/>
+      <inertia ixx="0.000407236" ixy="-2.4541e-12" ixz="1.55619e-11" iyy="0.000608371" iyz="4.23274e-11" izz="0.000407236"/>
+    </inertial>
+  </link>
+  <joint name="rear_left_wheel_joint" type="continuous">
+    <parent link="base_link"/><child link="rear_left_wheel"/>
+    <origin xyz="-0.16232 0.1955 0.0001325" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="5" velocity="20"/>
+    <dynamics damping="0.01" friction="0.01"/>
+  </joint>
+
+  <link name="rear_right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/rear_right_wheel.stl"/></geometry>
+      <material name="dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.0528" length="0.05"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-9.0852e-08 -0.00019524 -7.8751e-07" rpy="0 0 0"/>
+      <mass value="0.5087"/>
+      <inertia ixx="0.000407236" ixy="-2.4541e-12" ixz="1.55619e-11" iyy="0.000608371" iyz="4.23274e-11" izz="0.000407236"/>
+    </inertial>
+  </link>
+  <joint name="rear_right_wheel_joint" type="continuous">
+    <parent link="base_link"/><child link="rear_right_wheel"/>
+    <origin xyz="-0.16232 -0.1955 0.0001325" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="5" velocity="20"/>
+    <dynamics damping="0.01" friction="0.01"/>
+  </joint>
+
+  <link name="laser">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="package://emb_bot_description/meshes/laser.stl"/></geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.0065" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.028" length="0.041"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="-4.3705e-09 4.1011e-09 -0.0092401" rpy="0 0 0"/>
+      <mass value="0.1118"/>
+      <inertia ixx="3.86503e-05" ixy="-3.18908e-12" ixz="2.10968e-12" iyy="3.86503e-05" iyz="-1.90596e-12" izz="4.80277e-05"/>
+    </inertial>
+  </link>
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/><child link="laser"/>
+    <origin xyz="-0.007325 0 0.15009" rpy="0 0 0"/>
+  </joint>
+</robot>

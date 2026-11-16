@@ -1,12 +1,11 @@
-"""Read the limit-switch/buzzer S3 CSV stream, publish it, and drive the buzzer.
+"""Read the buzzer/motor S3 CSV stream, publish it, and drive the buzzer and motors.
 
 Expected line format (see ESP32S3_LimitBuzzer_CSV.ino):
-  ms,limit_switch0,limit_switch1,limit_switch2,limit_switch3,buzzer[,motor1..motor4]
-(legacy 6-field lines are still accepted). Lines starting with '#' are comments and are skipped.
+  ms,buzzer,motor1,motor2,motor3,motor4
+Lines starting with '#' are comments and are skipped.
 
 Topics:
-  main/limit_switch_0..3  std_msgs/Bool   True = pressed (see 'pressed_level')
-  main/buzzer_state       std_msgs/Bool   True = buzzer sounding
+  main/buzzer_state      std_msgs/Bool   True = buzzer sounding
   main/buzzer_cmd         std_msgs/Int32  (subscribed) 0 = off, 1 = on,
                                           2..60000 = beep for that many ms
   cmd_vel                 geometry_msgs/Twist (subscribed) body velocity
@@ -30,9 +29,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool, Int16MultiArray, Int32
 
 N_FIELDS = 6
-N_FIELDS_MOTOR = 10
 N_MOTORS = 4
-N_SWITCHES = 4
 
 
 def parse_line(line):
@@ -41,14 +38,13 @@ def parse_line(line):
     if not line or line.startswith('#'):
         return None
     parts = line.split(',')
-    if len(parts) not in (N_FIELDS, N_FIELDS_MOTOR):
+    if len(parts) != N_FIELDS:
         return None
     try:
         v = [int(p) for p in parts]
     except ValueError:
         return None
-    return {'ms': v[0], 'raw': v[1:5], 'buzzer': v[5] == 1,
-            'motors': v[6:10] if len(v) == N_FIELDS_MOTOR else None}
+    return {'ms': v[0], 'buzzer': v[1] == 1, 'motors': v[2:6]}
 
 
 def mecanum_wheel_speeds(vx, vy, wz, k):
@@ -77,9 +73,6 @@ class LimitBuzzerNode(Node):
         self.declare_parameter('display', True)
         self.declare_parameter('display_hz', 5.0)
         self.declare_parameter('publish', True)
-        # Raw pin level that means "pressed". Board uses INPUT_PULLUP, so a
-        # switch to GND reads 0 when pressed.
-        self.declare_parameter('pressed_level', 0)
         # --- motor / cmd_vel ---
         # Wheel linear speed that maps to full duty (255). Also acts as the
         # speed cap: wheel speeds are scaled down together if any exceeds it.
@@ -101,7 +94,6 @@ class LimitBuzzerNode(Node):
         self.baud = self.get_parameter('baud').value
         self.display = self.get_parameter('display').value
         self.publish_topics = self.get_parameter('publish').value
-        self.pressed_level = int(self.get_parameter('pressed_level').value)
 
         self.max_wheel_speed = float(self.get_parameter('max_wheel_speed').value)
         self.max_duty = int(self.get_parameter('max_duty').value)
@@ -117,8 +109,6 @@ class LimitBuzzerNode(Node):
         self.bad_lines = 0
         self.good_lines = 0
 
-        self.pub_sw = [self.create_publisher(Bool, f'main/limit_switch_{i}', 10)
-                       for i in range(N_SWITCHES)]
         self.pub_buzzer = self.create_publisher(Bool, 'main/buzzer_state', 10)
         self.create_subscription(Int32, 'main/buzzer_cmd', self.on_buzzer_cmd, 10)
 
@@ -231,29 +221,20 @@ class LimitBuzzerNode(Node):
             self.get_logger().error(f'Serial write failed: {e}')
 
     # ---------- ROS output ----------
-    def is_pressed(self, raw):
-        return raw == self.pressed_level
-
     def publish(self, d):
-        for i, raw in enumerate(d['raw']):
-            self.pub_sw[i].publish(Bool(data=self.is_pressed(raw)))
         self.pub_buzzer.publish(Bool(data=d['buzzer']))
-        if d['motors'] is not None:
-            self.pub_motor_applied.publish(Int16MultiArray(data=d['motors']))
+        self.pub_motor_applied.publish(Int16MultiArray(data=d['motors']))
 
     # ---------- terminal display ----------
     def show(self):
         d = self.latest
         status = 'connected' if self.ser else f'NO PORT ({self.port})'
-        lines = [f'=== Limit/Buzzer S3 serial: {status} | ok={self.good_lines} '
+        lines = [f'=== Buzzer/Motor S3 serial: {status} | ok={self.good_lines} '
                  f'bad={self.bad_lines} ===']
         if d is None:
             lines.append('waiting for data...')
         else:
             lines.append(f"t        : {d['ms'] / 1000.0:10.2f} s")
-            for i, raw in enumerate(d['raw']):
-                state = 'PRESSED' if self.is_pressed(raw) else 'open'
-                lines.append(f'limit {i}  : {state:8s} (raw {raw})')
             lines.append('buzzer   : ' + ('ON' if d['buzzer'] else 'off'))
             lines.append(f'motor cmd: {self.last_motor_cmd}   applied: {d["motors"]}')
         print('\033[2J\033[H' + '\n'.join(lines), flush=True)
