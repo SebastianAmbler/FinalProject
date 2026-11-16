@@ -41,7 +41,7 @@
 const uint8_t MOTOR_DIR_PINS[4] = {1, 5, 7, 16};
 const uint8_t MOTOR_PWM_PINS[4] = {2, 4, 6, 15};
 // Flip a motor's direction in firmware if it's wired/mounted reversed.
-const bool MOTOR_INVERT[4] = {false, false, false, false};
+const bool MOTOR_INVERT[4] = {true, false, true, false};
 #define MOTOR_PWM_FREQ 20000          // 20 kHz: silent, within MDD10A limit
 #define MOTOR_PWM_BITS 8              // duty 0..255
 #define MOTOR_TIMEOUT_MS 500          // default watchdog: stop if no MOTOR cmd this long
@@ -49,13 +49,13 @@ const bool MOTOR_INVERT[4] = {false, false, false, false};
 
 // Drive encoders (quadrature, x4 decoding via interrupts on both channels).
 // Index 0 = Encoder1 (belongs to Motor1) ... index 3 = Encoder4.
-const uint8_t ENC_A_PINS[4] = {13, 9, 11, 14};
-const uint8_t ENC_B_PINS[4] = {12, 8, 10, 17};
+const uint8_t ENC_A_PINS[4] = {13, 9, 11, 14}; 
+const uint8_t ENC_B_PINS[4] = {12, 8, 10, 17}; 
 // Flip so that positive duty on a motor gives positive counts.
 const bool ENC_INVERT[4] = {false, false, false, false};
 #define ENC_DEBUG_DEFAULT 1           // 1 = print "# ENC ..." debug lines at boot
 #define ENC_DEBUG_INTERVAL_MS 200
-// NOTE: encoder data is NOT in the CSV and is not sent to the Pi (debug only).
+// NOTE: encoder data is NOT in the CSV and is not sent to the Pi (debug only). 
 
 // ---------------- State ----------------
 volatile int32_t encCount[4] = {0, 0, 0, 0};
